@@ -5,6 +5,7 @@ import wx.adv
 class App(wx.App):
 
 	path = "%userprofile%/appdata/Local/Programs"
+	root: root
 
 	def OnPreInit(self):
 		wx.Exit()
@@ -17,6 +18,5 @@ class App(wx.App):
 
 
 if __name__ == '__main__':
-
 	app = App()
 	app.MainLoop()
