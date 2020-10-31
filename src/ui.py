@@ -84,11 +84,12 @@ class Installer:
 		downloadUrl: str
 		for tag in get(self.app.repoApiUrl).json():
 			if tag['name'] == self.app.version:
-				downloadUrl = tag['assets'][]
-
-
-
-		request = get( config.dynConfig[ 'beeUpdateUrl' ], stream=True )  # download BEE
+				for asset in tag['assets']:
+					if '.exe' in asset['name']:
+						downloadUrl = asset['browser_download_url']
+						break
+				break
+		request = get( downloadUrl, stream=True )  # download BEE
 		# working variables
 		zipdata = io.BytesIO()
 		dialog.Update( 0 )
