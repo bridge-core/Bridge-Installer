@@ -1,0 +1,5 @@
+Pillow==8.0.1
+py7zr==0.10.1
+pyinstaller==4.0
+requests==2.24.0
+wxPython==4.1.0
