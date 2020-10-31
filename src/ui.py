@@ -1,10 +1,12 @@
 import tempfile
 import threading
 import io
+import shutil
 
 import wx
 from requests import get
 from PIL import Image
+import py7zr
 
 
 def getBitmap():
@@ -50,7 +52,8 @@ class root(wx.Frame):
 		self.progBar = wx.Gauge(
 			parent=self,
 			pos=wx.Point(20, 90),
-			size=wx.Size(387, 20)
+			size=wx.Size(387, 20),
+			style=wx.GA_PROGRESS
 		)
 		self.megaText = wx.StaticText(
 			parent=self,
@@ -75,13 +78,14 @@ class Installer:
 
 	thread: threading.Thread
 	app: 'App'
+	app.root: root
 
 	def run( self ):
 		self.thread = threading.Thread(target=self.install)
 		self.thread.run()
 
 	def install( self ):
-		downloadUrl: str
+		downloadUrl: str = None
 		for tag in get(self.app.repoApiUrl).json():
 			if tag['name'] == self.app.version:
 				for asset in tag['assets']:
@@ -89,21 +93,42 @@ class Installer:
 						downloadUrl = asset['browser_download_url']
 						break
 				break
+		if not downloadUrl:
+			wx.GenericMessageDialog(
+				parent=self.app.root,
+				message="Can't find the version specified",
+				caption='Error',
+				style=None,
+			).ShowModal()
+			wx.CallAfter( self.app.root.Destroy )
+			return
 		request = get( downloadUrl, stream=True )  # download BEE
 		# working variables
 		zipdata = io.BytesIO()
-		dialog.Update( 0 )
 		dl = 0
 		total_length = int( request.headers.get( 'content-length' ) )
+		total_length_mb: int( total_length / 1024 / 1024 )
+		wx.CallAfter( self.app.root.progBar.SetRange, total_length )
 		# download!
 		for data in request.iter_content( chunk_size=1024 ):
 			dl += len( data )
 			zipdata.write( data )
 			done = int( 100 * dl / total_length )
 			print( f'total: {total_length}, dl: {dl}, done: {done}' )
-			dialog.Update( done )
-		logger.info( 'extracting...' )
-		dialog.Pulse( 'Extracting..' )
+			wx.CallAfter( self.app.root.progBar.SetValue, done )
+			wx.CallAfter( self.app.root.megaText.SetLabel, f'Done: {done / 1024 / 1024 }/{total_length_mb}MB')
+			wx.CallAfter( self.app.root.speedText.SetLabel, f'Speed: {len(data)}mbs')
+		wx.CallAfter( self.app.root.progBar.Pulse )
 		# read the data as bytes and then create the zipfile object from it
-		ZipFile( zipdata ).extractall( config.load( 'beePath' ) )  # extract BEE
-		logger.info( 'BEE2.4 application installed!' )
+		if py7zr.is_7zfile(zipdata):
+			wx.GenericMessageDialog(
+				parent=self.app.root,
+				message="The downloaded file wasn't a 7z file.",
+				caption='Error',
+				style=None,
+			).ShowModal()
+			wx.CallAfter( self.app.root.Destroy )
+			return
+		tempdir = tempfile.mkdtemp(prefix='bridge-inst')
+		py7zr.unpack_7zarchive( zipdata, tempdir )
+		shutil.move(tempdir, self.app.installPath)
