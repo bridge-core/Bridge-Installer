@@ -1,9 +1,6 @@
 from pathlib import Path
-import tempfile
 
 import wx
-import wx.adv
-from semver import VersionInfo
 
 from ui import root
 
